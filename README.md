@@ -65,20 +65,49 @@ The question: from information you can collect in a short visit (age, waist, blo
 - **"Told high cholesterol" lowers the risk** (0.68×). This is probably not biology. People with a cholesterol diagnosis see doctors more often, so their diabetes is more likely to be diagnosed already, and they leave the "undiagnosed" group.
 - These are associations, not causes. Correlated features, such as BMI and waist, share their effect, so a small coefficient doesn't mean a feature is unimportant.
 
+## Screening: who should be tested?
+
+A risk score is only useful with a rule for who gets a blood test. On the test set (1,329 people, 47 hidden cases), I ranked people by model risk and compared the result with the **ADA diabetes risk test**, a simple points score that doctors already use. The score gives points for age, male sex, family history, high blood pressure, physical inactivity and BMI. A score of 5 or more means "test this person".
+
+**Testing the top of the model's ranking:**
+
+| People tested | Cases found | Tests per case found |
+|---|---|---|
+| Top 10% | 38% | 7 |
+| Top 20% | 60% | 10 |
+| Top 30% | **81%** | 11 |
+
+Random testing needs about 28 tests per case found.
+
+**Model vs ADA score, with the same number of tests (630 people, 47%):**
+
+| | Cases found | ROC-AUC |
+|---|---|---|
+| ADA score ≥ 5 | 40 of 47 (85%) | 0.76 |
+| **LogReg B** | **45 of 47 (96%)** | **0.83** |
+
+![Screening curve](reports/figures/screening_curve.png)
+
+- At every testing level, the model finds more cases than the ADA score.
+- The model's top 30% finds almost as many cases (81%) as the ADA rule (85%), with about 37% fewer tests.
+- The gap is 5 cases out of 47, so it is small in absolute terms. The higher cross-validation ROC-AUC of the model (0.80) supports the result.
+
 ## Limitations
 
 - Only 237 positive cases. Test results are based on 47 cases, so all numbers have wide uncertainty.
 - The survey weights are not used. The results describe this sample, not the whole US population.
 - A single HbA1c measurement. A clinical diagnosis normally needs a repeated test.
 - Cross-sectional data: the model finds people who have diabetes now. It doesn't predict future diabetes.
+- The ADA score is missing one item, gestational diabetes (1 point for women with a history of it), because that question was not loaded. This can slightly underrate the ADA score for women.
 
 ## Project structure
 
 ```
 data/raw/              NHANES .xpt files (not in git, see below)
-data/processed/        analysis_sample.parquet
+data/processed/        analysis_sample.parquet, test_predictions.parquet
 src/01_load_and_clean.ipynb   load, clean, merge, build target and features
 src/02_model.ipynb            models, cross-validation, calibration, subgroups, feature importance
+src/03_screening.ipynb        screening thresholds and comparison with the ADA risk score
 reports/figures/       saved plots
 ```
 
@@ -92,7 +121,7 @@ pip install -r requirements.txt
 
    P_DEMO, P_DIQ, P_GHB, P_GLU, P_BMX, P_BPXO, P_BPQ, P_TCHOL, P_HDL, P_SMQ, P_PAQ, P_MCQ
 
-3. Run `src/01_load_and_clean.ipynb`, then `src/02_model.ipynb`
+3. Run the notebooks in order: `src/01_load_and_clean.ipynb`, `src/02_model.ipynb`, `src/03_screening.ipynb`
 
 ## Stack
 
