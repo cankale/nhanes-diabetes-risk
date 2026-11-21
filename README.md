@@ -4,6 +4,8 @@ A screening model that estimates the risk of **undiagnosed diabetes** in US adul
 
 The question: from information you can collect in a short visit (age, waist, blood pressure, family history, and optionally a cholesterol test), can we find people who have diabetes but don't know it?
 
+**Live app:** [nhanes-diabetes-risk.streamlit.app](https://nhanes-diabetes-risk.streamlit.app), a risk calculator based on the final model (see [App](#app)).
+
 ## Data
 
 - **Source:** [NHANES 2017–March 2020 pre-pandemic](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?Cycle=2017-2020), 12 public files (demographics, diabetes questionnaire, HbA1c, glucose, body measures, blood pressure, cholesterol, smoking, physical activity, medical conditions).
@@ -92,6 +94,37 @@ Random testing needs about 28 tests per case found.
 - The model's top 30% finds almost as many cases (81%) as the ADA rule (85%), with about 37% fewer tests.
 - The gap is 5 cases out of 47, so it is small in absolute terms. The higher cross-validation ROC-AUC of the model (0.80) supports the result.
 
+## App
+
+**[nhanes-diabetes-risk.streamlit.app](https://nhanes-diabetes-risk.streamlit.app)**
+
+![App screenshot](reports/figures/app_screenshot.png)
+
+The app estimates a person's risk of undiagnosed diabetes from questions anyone can answer, and shows it compared with the average risk in the sample (3.6%). It is a portfolio project, not medical advice.
+
+**Two input modes:**
+- **Basic (14 inputs):** age, sex, race, birth place, education, smoking, BMI, waist, diagnosed high blood pressure or high cholesterol and their medication, family history of diabetes, and leisure-time activity.
+- **With measurements (18 inputs):** the same, plus systolic and diastolic blood pressure, and total and HDL cholesterol. A checkbox switches to this mode.
+
+**Fewer questions, nearly the same quality.** The full model uses 24 features, some of which are hard to know (income-to-poverty ratio) or are survey details (interview language, season of the exam). They were removed, and two slim models were compared with the full model on the same split (`src/04_app_model.ipynb`):
+
+| Model | Inputs | CV ROC-AUC | Test ROC-AUC | Test PR-AUC | Test Brier |
+|---|---|---|---|---|---|
+| Full model | 24 | 0.797 | 0.828 | 0.141 | 0.032 |
+| **With measurements** | 18 | **0.800** | **0.830** | **0.149** | 0.032 |
+| Basic | 14 | 0.768 | 0.812 | 0.098 | 0.033 |
+
+- The model with measurements is as good as the full model, so the removed features add nothing.
+- Without measurements, the ranking (ROC-AUC) drops slightly, but the precision among the highest scores (PR-AUC) drops more. The app therefore recommends entering blood pressure and cholesterol.
+- Both app models are well calibrated on the test set, so the shown percentages match observed rates.
+- After evaluation, both models were refitted on all 6,644 participants and saved with `joblib` (`models/`).
+
+**Limits of the app:**
+- The calibration was checked only up to about 12% predicted risk. Very high estimates come from input combinations that few people in the data had, so they are less precise.
+- Some features lower the estimate in a way that reflects access to healthcare, not biology. For example, people with a high cholesterol diagnosis see doctors more often, so their diabetes is more likely to be found already.
+- The model learned associations in US adults from 2017–2020. It may not transfer to other countries or groups.
+- Cholesterol is entered in mg/dL, the unit used by NHANES.
+
 ## Limitations
 
 - Only 237 positive cases. Test results are based on 47 cases, so all numbers have wide uncertainty.
@@ -108,6 +141,9 @@ data/processed/        analysis_sample.parquet, test_predictions.parquet
 src/01_load_and_clean.ipynb   load, clean, merge, build target and features
 src/02_model.ipynb            models, cross-validation, calibration, subgroups, feature importance
 src/03_screening.ipynb        screening thresholds and comparison with the ADA risk score
+src/04_app_model.ipynb        slim models for the app: comparison, calibration, final fit
+models/                       saved app models (basic_model.joblib, lab_model.joblib)
+app/app.py                    Streamlit app
 reports/figures/       saved plots
 ```
 
@@ -121,8 +157,9 @@ pip install -r requirements.txt
 
    P_DEMO, P_DIQ, P_GHB, P_GLU, P_BMX, P_BPXO, P_BPQ, P_TCHOL, P_HDL, P_SMQ, P_PAQ, P_MCQ
 
-3. Run the notebooks in order: `src/01_load_and_clean.ipynb`, `src/02_model.ipynb`, `src/03_screening.ipynb`
+3. Run the notebooks in order: `src/01_load_and_clean.ipynb`, `src/02_model.ipynb`, `src/03_screening.ipynb`, `src/04_app_model.ipynb`
+4. Start the app locally from the repo root: `streamlit run app/app.py`
 
 ## Stack
 
-Python, pandas, NumPy, scikit-learn, matplotlib
+Python, pandas, NumPy, scikit-learn, matplotlib, Streamlit, joblib
